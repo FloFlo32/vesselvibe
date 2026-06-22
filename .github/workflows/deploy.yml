@@ -8,8 +8,12 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    outputs:
+      deploy_url: ${{ steps.deploy.outputs.deploy_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -30,14 +34,13 @@ jobs:
           echo "$OUTPUT"
           DEPLOY_URL=$(echo "$OUTPUT" | grep -o 'https://[^ ]*\.vercel\.app' | tail -1)
           echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          echo "DEPLOY_URL=$DEPLOY_URL" >> $GITHUB_ENV
+          echo "::notice title=Deployment URL::$DEPLOY_URL"
 
-      - name: Write URL to repo
+      - name: Create deployment summary
         run: |
-          DEPLOY_URL="${{ steps.deploy.outputs.deploy_url }}"
-          echo "$DEPLOY_URL" > DEPLOYMENT_URL.txt
-          git config user.email "ci@vesselvibe.com"
-          git config user.name "VesselVibe CI"
-          git add DEPLOYMENT_URL.txt
-          git commit -m "chore: record deployment URL [skip ci]" || true
-          git push || true
-          echo "=== LIVE URL: $DEPLOY_URL ==="
+          echo "## VesselVibe Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Live URL:** ${{ steps.deploy.outputs.deploy_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Deployment completed at $(date -u)" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,53 @@
+name: Add Custom Domain
+
+on:
+  workflow_dispatch:
+
+jobs:
+  add-domain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find project and add domain
+        run: |
+          TOKEN="${{ secrets.VERCEL_TOKEN }}"
+          
+          # List projects to find ours
+          echo "=== Listing projects ==="
+          PROJECTS=$(curl -s "https://api.vercel.com/v9/projects" \
+            -H "Authorization: Bearer $TOKEN")
+          echo "$PROJECTS" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+for p in d.get('projects', []):
+    print(f\"Project: {p['name']} | ID: {p['id']}\")
+"
+          
+          # Get project ID for vesselvibe
+          PROJECT_ID=$(echo "$PROJECTS" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+for p in d.get('projects', []):
+    if 'vessel' in p['name'].lower():
+        print(p['id'])
+        break
+")
+          echo "Project ID: $PROJECT_ID"
+          
+          # Add custom domain
+          echo "=== Adding custom domain ==="
+          curl -s -X POST "https://api.vercel.com/v10/projects/$PROJECT_ID/domains" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"name": "vesselvibe.getyetti.ai"}'
+          
+          echo ""
+          echo "=== Current domains ==="
+          curl -s "https://api.vercel.com/v9/projects/$PROJECT_ID/domains" \
+            -H "Authorization: Bearer $TOKEN" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+for dom in d.get('domains', []):
+    print(f\"Domain: {dom['name']} | Verified: {dom.get('verified')}\")
+    for dns in dom.get('verification', []):
+        print(f\"  DNS: {dns.get('type')} {dns.get('domain')} -> {dns.get('value')}\")
+"

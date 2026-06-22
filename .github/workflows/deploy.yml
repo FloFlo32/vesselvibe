@@ -24,11 +24,18 @@ jobs:
         run: npm install -g vercel
 
       - name: Deploy to Vercel
-        id: deploy
         run: |
-          URL=$(vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }})
-          echo "Deployed to: $URL"
-          echo "url=$URL" >> $GITHUB_OUTPUT
+          vercel deploy --prod --yes \
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            --name=vesselvibe \
+            2>&1 | tee /tmp/vercel-output.txt
+          cat /tmp/vercel-output.txt
+          DEPLOY_URL=$(grep -o 'https://[^ ]*\.vercel\.app' /tmp/vercel-output.txt | tail -1)
+          echo "DEPLOY_URL=$DEPLOY_URL" >> $GITHUB_ENV
+          echo "Deployed to: $DEPLOY_URL"
 
-      - name: Print deployment URL
-        run: echo "Live at ${{ steps.deploy.outputs.url }}"
+      - name: Confirm deployment URL
+        run: |
+          echo "=== DEPLOYMENT COMPLETE ==="
+          echo "URL: ${{ env.DEPLOY_URL }}"
+          curl -sI "${{ env.DEPLOY_URL }}" | head -3

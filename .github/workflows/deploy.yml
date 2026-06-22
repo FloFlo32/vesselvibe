@@ -24,18 +24,20 @@ jobs:
         run: npm install -g vercel
 
       - name: Deploy to Vercel
+        id: deploy
         run: |
-          vercel deploy --prod --yes \
-            --token=${{ secrets.VERCEL_TOKEN }} \
-            --name=vesselvibe \
-            2>&1 | tee /tmp/vercel-output.txt
-          cat /tmp/vercel-output.txt
-          DEPLOY_URL=$(grep -o 'https://[^ ]*\.vercel\.app' /tmp/vercel-output.txt | tail -1)
-          echo "DEPLOY_URL=$DEPLOY_URL" >> $GITHUB_ENV
-          echo "Deployed to: $DEPLOY_URL"
+          OUTPUT=$(vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --name=vesselvibe 2>&1)
+          echo "$OUTPUT"
+          DEPLOY_URL=$(echo "$OUTPUT" | grep -o 'https://[^ ]*\.vercel\.app' | tail -1)
+          echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
 
-      - name: Confirm deployment URL
+      - name: Write URL to repo
         run: |
-          echo "=== DEPLOYMENT COMPLETE ==="
-          echo "URL: ${{ env.DEPLOY_URL }}"
-          curl -sI "${{ env.DEPLOY_URL }}" | head -3
+          DEPLOY_URL="${{ steps.deploy.outputs.deploy_url }}"
+          echo "$DEPLOY_URL" > DEPLOYMENT_URL.txt
+          git config user.email "ci@vesselvibe.com"
+          git config user.name "VesselVibe CI"
+          git add DEPLOYMENT_URL.txt
+          git commit -m "chore: record deployment URL [skip ci]" || true
+          git push || true
+          echo "=== LIVE URL: $DEPLOY_URL ==="

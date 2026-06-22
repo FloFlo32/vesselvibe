@@ -2,6 +2,8 @@ name: Add Custom Domain
 
 on:
   workflow_dispatch:
+  push:
+    branches: [never-auto-run-this]
 
 jobs:
   add-domain:
@@ -11,8 +13,7 @@ jobs:
         run: |
           TOKEN="${{ secrets.VERCEL_TOKEN }}"
           
-          # List projects to find ours
-          echo "=== Listing projects ==="
+          echo "=== Listing Vercel projects ==="
           PROJECTS=$(curl -s "https://api.vercel.com/v9/projects" \
             -H "Authorization: Bearer $TOKEN")
           echo "$PROJECTS" | python3 -c "
@@ -22,7 +23,6 @@ for p in d.get('projects', []):
     print(f\"Project: {p['name']} | ID: {p['id']}\")
 "
           
-          # Get project ID for vesselvibe
           PROJECT_ID=$(echo "$PROJECTS" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
@@ -33,21 +33,19 @@ for p in d.get('projects', []):
 ")
           echo "Project ID: $PROJECT_ID"
           
-          # Add custom domain
           echo "=== Adding custom domain ==="
-          curl -s -X POST "https://api.vercel.com/v10/projects/$PROJECT_ID/domains" \
+          RESP=$(curl -s -X POST "https://api.vercel.com/v10/projects/$PROJECT_ID/domains" \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{"name": "vesselvibe.getyetti.ai"}'
+            -d '{"name": "vesselvibe.getyetti.ai"}')
+          echo "$RESP"
           
-          echo ""
-          echo "=== Current domains ==="
-          curl -s "https://api.vercel.com/v9/projects/$PROJECT_ID/domains" \
-            -H "Authorization: Bearer $TOKEN" | python3 -c "
+          echo "=== DNS Requirements ==="
+          echo "$RESP" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
-for dom in d.get('domains', []):
-    print(f\"Domain: {dom['name']} | Verified: {dom.get('verified')}\")
-    for dns in dom.get('verification', []):
-        print(f\"  DNS: {dns.get('type')} {dns.get('domain')} -> {dns.get('value')}\")
-"
+print('Domain:', d.get('name'))
+print('Verified:', d.get('verified'))
+for v in d.get('verification', []):
+    print(f\"DNS: {v.get('type')} | Name: {v.get('domain')} | Value: {v.get('value')}\")
+" || true
